@@ -1,18 +1,20 @@
 repeat task.wait() until game:IsLoaded()
 
+-- REQUEST SUPPORT
 local req = request or http_request or syn.request
-if not req then return end
 
 local HttpService = game:GetService("HttpService")
-local player = game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
 
 local webhook = ""
 
+-- LOAD ORION (LINK YANG KAMU KASIH)
 local OrionLib = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/shlexware/Orion/main/source"
+    "https://raw.githubusercontent.com/jensonhirst/Orion/main/source"
 ))()
 
--- WINDOW (STYLE CHLOE X)
+-- WINDOW (PASTI MUNCUL)
 local Window = OrionLib:MakeWindow({
     Name = "Fish It Logger",
     HidePremium = false,
@@ -21,18 +23,18 @@ local Window = OrionLib:MakeWindow({
     IntroIcon = "rbxassetid://4483345998"
 })
 
--- NOTIFIKASI AWAL
+-- NOTIF DEBUG (PENTING ANDROID)
 OrionLib:MakeNotification({
     Name = "Loaded",
-    Content = "Fish It Logger berhasil dijalankan",
-    Time = 3
+    Content = "Fish It Logger aktif",
+    Time = 4
 })
 
--- FUNCTION AMBIL IKAN
+-- GET FISH
 local function getFishList()
     local list = {}
     if player:FindFirstChild("leaderstats") then
-        for _,v in pairs(player.leaderstats:GetChildren()) do
+        for _,v in ipairs(player.leaderstats:GetChildren()) do
             if v:IsA("IntValue") or v:IsA("NumberValue") then
                 table.insert(list, v.Name .. ": " .. v.Value)
             end
@@ -44,12 +46,21 @@ local function getFishList()
     return list
 end
 
--- FUNCTION SEND WEBHOOK
+-- SEND WEBHOOK
 local function sendWebhook(content)
-    if webhook == "" then
+    if not webhook or webhook == "" then
         OrionLib:MakeNotification({
             Name = "Error",
             Content = "Webhook belum diisi",
+            Time = 3
+        })
+        return
+    end
+
+    if not req then
+        OrionLib:MakeNotification({
+            Name = "Error",
+            Content = "Executor tidak support request",
             Time = 3
         })
         return
@@ -77,27 +88,19 @@ WebhookTab:AddTextbox({
     Name = "Discord Webhook URL",
     Default = "",
     TextDisappear = false,
-    Callback = function(value)
-        webhook = value
+    Callback = function(v)
+        webhook = v
     end
 })
 
 WebhookTab:AddButton({
     Name = "Save Webhook",
     Callback = function()
-        if webhook:find("discord.com/api/webhooks") then
-            OrionLib:MakeNotification({
-                Name = "Success",
-                Content = "Webhook berhasil disimpan",
-                Time = 3
-            })
-        else
-            OrionLib:MakeNotification({
-                Name = "Invalid",
-                Content = "URL webhook tidak valid",
-                Time = 3
-            })
-        end
+        OrionLib:MakeNotification({
+            Name = webhook:find("discord.com/api/webhooks") and "Success" or "Invalid",
+            Content = webhook:find("discord.com/api/webhooks") and "Webhook tersimpan" or "URL webhook tidak valid",
+            Time = 3
+        })
     end
 })
 
@@ -105,11 +108,6 @@ WebhookTab:AddButton({
     Name = "Test Webhook",
     Callback = function()
         sendWebhook("✅ **Webhook Test Berhasil!**\nFish It Logger aktif.")
-        OrionLib:MakeNotification({
-            Name = "Test",
-            Content = "Pesan test dikirim",
-            Time = 3
-        })
     end
 })
 
