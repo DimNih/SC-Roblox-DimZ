@@ -8,73 +8,65 @@ local CoreGui = game:GetService("CoreGui")
 
 local player = Players.LocalPlayer
 local req = request or http_request or syn.request
+if not req then return end
 
--- ========================
+-- =========================
 -- CONFIG
--- ========================
+-- =========================
+local SCRIPT_NAME = "DimZ-SC NOTIF"
+local LOGO_ASSET = "rbxassetid://PASTE_ID_LOGO_KAMU_DI_SINI"
 local webhook = ""
-local LOGO_IMAGE = "rbxassetid://11854771841" -- GANTI LOGO DI SINI
 
--- ========================
--- LOAD ORION LIB
--- ========================
+-- FILTER DEFAULT
+local FishFilter = {
+    Common = false,
+    Uncommon = true,
+    Rare = true,
+    Epic = true,
+    Legendary = true,
+    Mythic = true,
+    Secret = true
+}
+
+-- =========================
+-- LOAD ORION
+-- =========================
 local OrionLib = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/jensonhirst/Orion/main/source"
 ))()
 
 local Window = OrionLib:MakeWindow({
-    Name = "Fish It Logger",
+    Name = SCRIPT_NAME,
     HidePremium = false,
     SaveConfig = false,
-    IntroText = "Fish It Logger",
-    IntroIcon = LOGO_IMAGE
+    IntroText = SCRIPT_NAME,
+    IntroIcon = LOGO_ASSET
 })
 
 OrionLib:MakeNotification({
     Name = "Loaded",
-    Content = "Fish It Logger aktif (Android Support)",
+    Content = SCRIPT_NAME.." aktif",
     Time = 3
 })
 
--- ========================
--- GET FISH DATA (BASIC)
--- ========================
-local function getFishList()
-    local list = {}
-    if player:FindFirstChild("leaderstats") then
-        for _,v in ipairs(player.leaderstats:GetChildren()) do
-            if v:IsA("IntValue") or v:IsA("NumberValue") then
-                table.insert(list, v.Name .. ": " .. v.Value)
-            end
-        end
-    end
-    if #list == 0 then
-        table.insert(list, "Tidak ada data ikan")
-    end
-    return list
-end
-
--- ========================
--- SEND EMBED WEBHOOK (CHLOE X STYLE)
--- ========================
+-- =========================
+-- WEBHOOK EMBED
+-- =========================
 local function sendFishEmbed(data)
-    if webhook == "" or not req then return end
+    if webhook == "" then return end
+    if not FishFilter[data.tier] then return end
 
     local payload = {
-        username = "Chloe X Notification!",
+        username = SCRIPT_NAME,
         embeds = {{
-            title = "Chloe X Webhook | Fish Caught",
-            description = "Congratulations!! **"..player.Name.."** You have obtained a new **"..data.tier.."** fish!",
+            title = SCRIPT_NAME.." | Fish Caught",
+            description = "🎣 **"..player.Name.."** obtained a **"..data.tier.."** fish!",
             color = 3447003,
             fields = {
                 { name = "|| Fish Name :", value = "```"..data.name.."```", inline = false },
-                { name = "|| Fish Tier :", value = "```"..data.tier.."```", inline = false },
-                { name = "|| Weight :", value = "```"..data.weight.." Kg```", inline = false },
-                { name = "|| Mutation :", value = "```"..data.mutation.."```", inline = false },
-                { name = "|| Sell Price :", value = "```$"..data.price.."```", inline = false }
+                { name = "|| Fish Tier :", value = "```"..data.tier.."```", inline = false }
             },
-            image = { url = data.image },
-            footer = { text = "Fish It Logger • Roblox" },
+            footer = { text = SCRIPT_NAME },
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
         }}
     }
@@ -82,15 +74,42 @@ local function sendFishEmbed(data)
     req({
         Url = webhook,
         Method = "POST",
-        Headers = { ["Content-Type"] = "application/json" },
+        Headers = {["Content-Type"] = "application/json"},
         Body = HttpService:JSONEncode(payload)
     })
 end
 
--- ========================
--- ORION UI TABS
--- ========================
-local WebhookTab = Window:MakeTab({ Name = "Webhook", Icon = "rbxassetid://4483345998" })
+-- =========================
+-- AUTO DETECT FISH (BACKPACK)
+-- =========================
+local Backpack = player:WaitForChild("Backpack")
+
+Backpack.ChildAdded:Connect(function(tool)
+    task.wait(0.3)
+    if not tool:IsA("Tool") then return end
+
+    -- CONTOH parsing nama (sesuai Fish It biasanya)
+    local fishName = tool.Name
+    local tier = "Common"
+
+    -- DETEKSI RARITY DARI NAMA (UMUM DIPAKAI)
+    for r,_ in pairs(FishFilter) do
+        if string.find(string.lower(fishName), string.lower(r)) then
+            tier = r
+            break
+        end
+    end
+
+    sendFishEmbed({
+        name = fishName,
+        tier = tier
+    })
+end)
+
+-- =========================
+-- WEBHOOK TAB
+-- =========================
+local WebhookTab = Window:MakeTab({ Name = "Webhook" })
 
 WebhookTab:AddTextbox({
     Name = "Discord Webhook URL",
@@ -102,86 +121,67 @@ WebhookTab:AddTextbox({
 })
 
 WebhookTab:AddButton({
-    Name = "Save Webhook",
-    Callback = function()
-        OrionLib:MakeNotification({
-            Name = webhook:find("discord.com/api/webhooks") and "Success" or "Invalid",
-            Content = webhook:find("discord.com/api/webhooks") and "Webhook tersimpan" or "URL tidak valid",
-            Time = 3
-        })
-    end
-})
-
-WebhookTab:AddButton({
-    Name = "Test Chloe X Webhook",
+    Name = "Test Webhook",
     Callback = function()
         sendFishEmbed({
             name = "Tricolore Butterfly",
-            tier = "Uncommon",
-            weight = "1.33",
-            mutation = "Sandy",
-            price = "112",
-            image = "https://i.imgur.com/7QFZb8Z.png"
+            tier = "Uncommon"
         })
     end
 })
 
-local FishTab = Window:MakeTab({ Name = "Fish", Icon = "rbxassetid://4483345998" })
+-- =========================
+-- FISH FILTER TAB
+-- =========================
+local FishTab = Window:MakeTab({ Name = "Fish Filter" })
 
-FishTab:AddButton({
-    Name = "Send Fish List (Text)",
-    Callback = function()
-        if webhook == "" then return end
-        req({
-            Url = webhook,
-            Method = "POST",
-            Headers = {["Content-Type"]="application/json"},
-            Body = HttpService:JSONEncode({
-                content = "🎣 **Fish It Log**\n\n"..table.concat(getFishList(), "\n")
-            })
-        })
-    end
-})
+for rarity,_ in pairs(FishFilter) do
+    FishTab:AddToggle({
+        Name = rarity,
+        Default = FishFilter[rarity],
+        Callback = function(v)
+            FishFilter[rarity] = v
+        end
+    })
+end
 
 OrionLib:Init()
 
--- ========================
--- FLOATING LOGO (DRAG + TOGGLE UI)
--- ========================
+-- =========================
+-- FLOATING LOGO
+-- =========================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "FloatingLogo"
-ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = gethui and gethui() or CoreGui
+ScreenGui.ResetOnSpawn = false
 
 local Icon = Instance.new("ImageButton")
 Icon.Parent = ScreenGui
-Icon.Size = UDim2.fromOffset(55,55)
+Icon.Size = UDim2.fromOffset(52,52)
 Icon.Position = UDim2.fromScale(0.85,0.45)
 Icon.BackgroundTransparency = 1
-Icon.Image = LOGO_IMAGE
-Icon.AutoButtonColor = true
+Icon.Image = LOGO_ASSET
 
 Instance.new("UICorner", Icon).CornerRadius = UDim.new(1,0)
 
--- DRAG SYSTEM
+-- DRAG
 local dragging, dragStart, startPos
-Icon.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+Icon.InputBegan:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = true
-        dragStart = input.Position
+        dragStart = i.Position
         startPos = Icon.Position
     end
 end)
 
-Icon.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+Icon.InputEnded:Connect(function(i)
+    if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
         dragging = false
     end
 end)
 
-UIS.InputChanged:Connect(function(input)
-    if dragging and (input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement) then
-        local delta = input.Position - dragStart
+UIS.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
+        local delta = i.Position - dragStart
         Icon.Position = UDim2.new(
             startPos.X.Scale,
             startPos.X.Offset + delta.X,
@@ -191,7 +191,7 @@ UIS.InputChanged:Connect(function(input)
     end
 end)
 
--- TOGGLE MENU
+-- TOGGLE UI
 local visible = true
 Icon.MouseButton1Click:Connect(function()
     visible = not visible
