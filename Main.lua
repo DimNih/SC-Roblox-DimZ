@@ -30,12 +30,12 @@ local function getFishList()
     return list
 end
 
-local function sendWebhook(data)
+local function sendWebhook(content)
     if webhook == "" then
         OrionLib:MakeNotification({
             Name = "Error",
             Content = "Webhook belum diisi",
-            Time = 5
+            Time = 4
         })
         return
     end
@@ -47,11 +47,12 @@ local function sendWebhook(data)
             ["Content-Type"] = "application/json"
         },
         Body = HttpService:JSONEncode({
-            content = "**Fish It Log**\n\n" .. table.concat(data, "\n")
+            content = content
         })
     })
 end
 
+-- TAB WEBHOOK
 local Tab = Window:MakeTab({
     Name = "Webhook",
     Icon = "rbxassetid://4483345998"
@@ -73,18 +74,32 @@ Tab:AddButton({
             OrionLib:MakeNotification({
                 Name = "Success",
                 Content = "Webhook tersimpan",
-                Time = 4
+                Time = 3
             })
         else
             OrionLib:MakeNotification({
                 Name = "Invalid",
                 Content = "URL webhook tidak valid",
-                Time = 4
+                Time = 3
             })
         end
     end
 })
 
+-- 🔥 TOMBOL TEST WEBHOOK
+Tab:AddButton({
+    Name = "Test Webhook",
+    Callback = function()
+        sendWebhook("✅ **Webhook Test Berhasil!**\nScript Fish It Logger aktif.")
+        OrionLib:MakeNotification({
+            Name = "Test",
+            Content = "Test webhook dikirim",
+            Time = 3
+        })
+    end
+})
+
+-- TAB FISH
 local FishTab = Window:MakeTab({
     Name = "Fish",
     Icon = "rbxassetid://4483345998"
@@ -93,7 +108,8 @@ local FishTab = Window:MakeTab({
 FishTab:AddButton({
     Name = "Send Fish to Webhook",
     Callback = function()
-        sendWebhook(getFishList())
+        local fish = getFishList()
+        sendWebhook("🎣 **Fish It Log**\n\n" .. table.concat(fish, "\n"))
     end
 })
 
