@@ -12,12 +12,23 @@ local OrionLib = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/shlexware/Orion/main/source"
 ))()
 
+-- WINDOW (STYLE CHLOE X)
 local Window = OrionLib:MakeWindow({
     Name = "Fish It Logger",
     HidePremium = false,
-    SaveConfig = false
+    SaveConfig = false,
+    IntroText = "Fish It Logger",
+    IntroIcon = "rbxassetid://4483345998"
 })
 
+-- NOTIFIKASI AWAL
+OrionLib:MakeNotification({
+    Name = "Loaded",
+    Content = "Fish It Logger berhasil dijalankan",
+    Time = 3
+})
+
+-- FUNCTION AMBIL IKAN
 local function getFishList()
     local list = {}
     if player:FindFirstChild("leaderstats") then
@@ -27,15 +38,19 @@ local function getFishList()
             end
         end
     end
+    if #list == 0 then
+        table.insert(list, "Tidak ada data ikan")
+    end
     return list
 end
 
+-- FUNCTION SEND WEBHOOK
 local function sendWebhook(content)
     if webhook == "" then
         OrionLib:MakeNotification({
             Name = "Error",
             Content = "Webhook belum diisi",
-            Time = 4
+            Time = 3
         })
         return
     end
@@ -53,12 +68,12 @@ local function sendWebhook(content)
 end
 
 -- TAB WEBHOOK
-local Tab = Window:MakeTab({
+local WebhookTab = Window:MakeTab({
     Name = "Webhook",
     Icon = "rbxassetid://4483345998"
 })
 
-Tab:AddTextbox({
+WebhookTab:AddTextbox({
     Name = "Discord Webhook URL",
     Default = "",
     TextDisappear = false,
@@ -67,13 +82,13 @@ Tab:AddTextbox({
     end
 })
 
-Tab:AddButton({
+WebhookTab:AddButton({
     Name = "Save Webhook",
     Callback = function()
         if webhook:find("discord.com/api/webhooks") then
             OrionLib:MakeNotification({
                 Name = "Success",
-                Content = "Webhook tersimpan",
+                Content = "Webhook berhasil disimpan",
                 Time = 3
             })
         else
@@ -86,14 +101,13 @@ Tab:AddButton({
     end
 })
 
--- 🔥 TOMBOL TEST WEBHOOK
-Tab:AddButton({
+WebhookTab:AddButton({
     Name = "Test Webhook",
     Callback = function()
-        sendWebhook("✅ **Webhook Test Berhasil!**\nScript Fish It Logger aktif.")
+        sendWebhook("✅ **Webhook Test Berhasil!**\nFish It Logger aktif.")
         OrionLib:MakeNotification({
             Name = "Test",
-            Content = "Test webhook dikirim",
+            Content = "Pesan test dikirim",
             Time = 3
         })
     end
@@ -108,8 +122,7 @@ local FishTab = Window:MakeTab({
 FishTab:AddButton({
     Name = "Send Fish to Webhook",
     Callback = function()
-        local fish = getFishList()
-        sendWebhook("🎣 **Fish It Log**\n\n" .. table.concat(fish, "\n"))
+        sendWebhook("🎣 **Fish It Log**\n\n" .. table.concat(getFishList(), "\n"))
     end
 })
 
