@@ -1,6 +1,8 @@
 repeat task.wait() until game:IsLoaded()
 
+-- =========================
 -- SERVICES
+-- =========================
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
@@ -14,10 +16,10 @@ if not req then return end
 -- CONFIG
 -- =========================
 local SCRIPT_NAME = "DimZ-SC NOTIF"
-local LOGO_ASSET = "rbxassetid://PASTE_ID_LOGO_KAMU_DI_SINI"
+local LOGO_ASSET = "rbxassetid://PASTE_ID_LOGO_KAMU" -- upload gambar Pinterest ke Roblox
 local webhook = ""
 
--- FILTER DEFAULT
+-- FILTER RARITY
 local FishFilter = {
     Common = false,
     Uncommon = true,
@@ -45,7 +47,7 @@ local Window = OrionLib:MakeWindow({
 
 OrionLib:MakeNotification({
     Name = "Loaded",
-    Content = SCRIPT_NAME.." aktif",
+    Content = SCRIPT_NAME .. " aktif",
     Time = 3
 })
 
@@ -59,7 +61,7 @@ local function sendFishEmbed(data)
     local payload = {
         username = SCRIPT_NAME,
         embeds = {{
-            title = SCRIPT_NAME.." | Fish Caught",
+            title = SCRIPT_NAME .. " | Fish Caught",
             description = "🎣 **"..player.Name.."** obtained a **"..data.tier.."** fish!",
             color = 3447003,
             fields = {
@@ -74,36 +76,48 @@ local function sendFishEmbed(data)
     req({
         Url = webhook,
         Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
+        Headers = { ["Content-Type"] = "application/json" },
         Body = HttpService:JSONEncode(payload)
     })
 end
 
 -- =========================
--- AUTO DETECT FISH (BACKPACK)
+-- AUTO DETECT FISH (LEADERSTATS) ✅ FIX
 -- =========================
-local Backpack = player:WaitForChild("Backpack")
+local lastStats = {}
 
-Backpack.ChildAdded:Connect(function(tool)
-    task.wait(0.3)
-    if not tool:IsA("Tool") then return end
+local function detectFish()
+    local stats = player:FindFirstChild("leaderstats")
+    if not stats then return end
 
-    -- CONTOH parsing nama (sesuai Fish It biasanya)
-    local fishName = tool.Name
-    local tier = "Common"
+    for _,v in pairs(stats:GetChildren()) do
+        if v:IsA("IntValue") or v:IsA("NumberValue") then
+            if lastStats[v.Name] == nil then
+                lastStats[v.Name] = v.Value
+            elseif v.Value > lastStats[v.Name] then
+                local tier = "Common"
+                for r,_ in pairs(FishFilter) do
+                    if string.find(string.lower(v.Name), string.lower(r)) then
+                        tier = r
+                        break
+                    end
+                end
 
-    -- DETEKSI RARITY DARI NAMA (UMUM DIPAKAI)
-    for r,_ in pairs(FishFilter) do
-        if string.find(string.lower(fishName), string.lower(r)) then
-            tier = r
-            break
+                sendFishEmbed({
+                    name = v.Name,
+                    tier = tier
+                })
+
+                lastStats[v.Name] = v.Value
+            end
         end
     end
+end
 
-    sendFishEmbed({
-        name = fishName,
-        tier = tier
-    })
+task.spawn(function()
+    while task.wait(1) do
+        detectFish()
+    end
 end)
 
 -- =========================
@@ -148,7 +162,7 @@ end
 OrionLib:Init()
 
 -- =========================
--- FLOATING LOGO
+-- FLOATING LOGO (DRAG + TOGGLE)
 -- =========================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = gethui and gethui() or CoreGui
@@ -163,7 +177,7 @@ Icon.Image = LOGO_ASSET
 
 Instance.new("UICorner", Icon).CornerRadius = UDim.new(1,0)
 
--- DRAG
+-- DRAG SYSTEM
 local dragging, dragStart, startPos
 Icon.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
