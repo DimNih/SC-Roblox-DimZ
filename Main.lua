@@ -16,19 +16,13 @@ if not req then return end
 -- CONFIG
 -- =========================
 local SCRIPT_NAME = "DimZ-SC NOTIF"
-local LOGO_ASSET = "rbxassetid://PASTE_ID_LOGO_KAMU" -- upload gambar Pinterest ke Roblox
-local webhook = ""
+local LOGO_ASSET = "rbxassetid://113006064397580"
 
--- FILTER RARITY
-local FishFilter = {
-    Common = false,
-    Uncommon = true,
-    Rare = true,
-    Epic = true,
-    Legendary = true,
-    Mythic = true,
-    Secret = true
-}
+getgenv().WebhookURL = getgenv().WebhookURL or ""
+getgenv().NotifEnabled = getgenv().NotifEnabled ~= false
+
+local AllRarity = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Secret"}
+getgenv().RarityFilter = getgenv().RarityFilter or {"Uncommon","Rare","Epic","Legendary","Mythic","Secret"}
 
 -- =========================
 -- LOAD ORION
@@ -40,33 +34,47 @@ local OrionLib = loadstring(game:HttpGet(
 local Window = OrionLib:MakeWindow({
     Name = SCRIPT_NAME,
     HidePremium = false,
-    SaveConfig = false,
+    SaveConfig = true,
+    ConfigFolder = "DimZSC",
     IntroText = SCRIPT_NAME,
     IntroIcon = LOGO_ASSET
 })
 
 OrionLib:MakeNotification({
     Name = "Loaded",
-    Content = SCRIPT_NAME .. " aktif",
+    Content = SCRIPT_NAME.." aktif",
     Time = 3
 })
 
 -- =========================
--- WEBHOOK EMBED
+-- HELPER
 -- =========================
-local function sendFishEmbed(data)
-    if webhook == "" then return end
-    if not FishFilter[data.tier] then return end
+local function isAllowed(tier)
+    for _,v in pairs(getgenv().RarityFilter) do
+        if v == tier then
+            return true
+        end
+    end
+    return false
+end
+
+-- =========================
+-- SEND WEBHOOK
+-- =========================
+local function sendFishEmbed(name, tier)
+    if not getgenv().NotifEnabled then return end
+    if getgenv().WebhookURL == "" then return end
+    if not isAllowed(tier) then return end
 
     local payload = {
         username = SCRIPT_NAME,
         embeds = {{
-            title = SCRIPT_NAME .. " | Fish Caught",
-            description = "🎣 **"..player.Name.."** obtained a **"..data.tier.."** fish!",
+            title = SCRIPT_NAME.." | Fish Caught",
+            description = "🎣 **"..player.Name.."** obtained a **"..tier.."** fish!",
             color = 3447003,
             fields = {
-                { name = "|| Fish Name :", value = "```"..data.name.."```", inline = false },
-                { name = "|| Fish Tier :", value = "```"..data.tier.."```", inline = false }
+                { name = "|| Fish Name :", value = "```"..name.."```", inline = false },
+                { name = "|| Fish Tier :", value = "```"..tier.."```", inline = false }
             },
             footer = { text = SCRIPT_NAME },
             timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -74,49 +82,40 @@ local function sendFishEmbed(data)
     }
 
     req({
-        Url = webhook,
+        Url = getgenv().WebhookURL,
         Method = "POST",
-        Headers = { ["Content-Type"] = "application/json" },
+        Headers = {["Content-Type"]="application/json"},
         Body = HttpService:JSONEncode(payload)
     })
 end
 
 -- =========================
--- AUTO DETECT FISH (LEADERSTATS) ✅ FIX
+-- AUTO DETECT (LEADERSTATS)
 -- =========================
 local lastStats = {}
 
-local function detectFish()
-    local stats = player:FindFirstChild("leaderstats")
-    if not stats then return end
-
-    for _,v in pairs(stats:GetChildren()) do
-        if v:IsA("IntValue") or v:IsA("NumberValue") then
-            if lastStats[v.Name] == nil then
-                lastStats[v.Name] = v.Value
-            elseif v.Value > lastStats[v.Name] then
-                local tier = "Common"
-                for r,_ in pairs(FishFilter) do
-                    if string.find(string.lower(v.Name), string.lower(r)) then
-                        tier = r
-                        break
-                    end
-                end
-
-                sendFishEmbed({
-                    name = v.Name,
-                    tier = tier
-                })
-
-                lastStats[v.Name] = v.Value
-            end
-        end
-    end
-end
-
 task.spawn(function()
     while task.wait(1) do
-        detectFish()
+        local stats = player:FindFirstChild("leaderstats")
+        if stats then
+            for _,v in pairs(stats:GetChildren()) do
+                if v:IsA("IntValue") or v:IsA("NumberValue") then
+                    if lastStats[v.Name] == nil then
+                        lastStats[v.Name] = v.Value
+                    elseif v.Value > lastStats[v.Name] then
+                        local tier = "Common"
+                        for _,r in pairs(AllRarity) do
+                            if string.find(string.lower(v.Name), string.lower(r)) then
+                                tier = r
+                                break
+                            end
+                        end
+                        sendFishEmbed(v.Name, tier)
+                        lastStats[v.Name] = v.Value
+                    end
+                end
+            end
+        end
     end
 end)
 
@@ -127,42 +126,42 @@ local WebhookTab = Window:MakeTab({ Name = "Webhook" })
 
 WebhookTab:AddTextbox({
     Name = "Discord Webhook URL",
-    Default = "",
+    Default = getgenv().WebhookURL,
     TextDisappear = false,
     Callback = function(v)
-        webhook = v
+        getgenv().WebhookURL = v
     end
 })
 
-WebhookTab:AddButton({
-    Name = "Test Webhook",
-    Callback = function()
-        sendFishEmbed({
-            name = "Tricolore Butterfly",
-            tier = "Uncommon"
-        })
+WebhookTab:AddToggle({
+    Name = "Enable Discord Notification",
+    Default = getgenv().NotifEnabled,
+    Callback = function(v)
+        getgenv().NotifEnabled = v
     end
 })
 
 -- =========================
 -- FISH FILTER TAB
 -- =========================
-local FishTab = Window:MakeTab({ Name = "Fish Filter" })
+local FishTab = Window:MakeTab({ Name = "Fish" })
 
-for rarity,_ in pairs(FishFilter) do
-    FishTab:AddToggle({
-        Name = rarity,
-        Default = FishFilter[rarity],
-        Callback = function(v)
-            FishFilter[rarity] = v
-        end
-    })
-end
+FishTab:AddDropdown({
+    Name = "Fish Rarity Filter",
+    Default = getgenv().RarityFilter,
+    Options = AllRarity,
+    Callback = function(v)
+        getgenv().RarityFilter = v
+    end
+})
 
+-- =========================
+-- INIT UI
+-- =========================
 OrionLib:Init()
 
 -- =========================
--- FLOATING LOGO (DRAG + TOGGLE)
+-- FLOATING LOGO
 -- =========================
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Parent = gethui and gethui() or CoreGui
@@ -177,7 +176,7 @@ Icon.Image = LOGO_ASSET
 
 Instance.new("UICorner", Icon).CornerRadius = UDim.new(1,0)
 
--- DRAG SYSTEM
+-- DRAG
 local dragging, dragStart, startPos
 Icon.InputBegan:Connect(function(i)
     if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -188,9 +187,7 @@ Icon.InputBegan:Connect(function(i)
 end)
 
 Icon.InputEnded:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = false
-    end
+    dragging = false
 end)
 
 UIS.InputChanged:Connect(function(i)
@@ -205,7 +202,7 @@ UIS.InputChanged:Connect(function(i)
     end
 end)
 
--- TOGGLE UI
+-- TOGGLE MENU
 local visible = true
 Icon.MouseButton1Click:Connect(function()
     visible = not visible
