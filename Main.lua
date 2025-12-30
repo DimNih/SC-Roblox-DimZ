@@ -92,10 +92,9 @@ end
 local last = {}
 task.spawn(function()
     while task.wait(1) do
-        if not getgenv().ScriptRunning then continue end
+        if not getgenv().ScriptRunning then goto continue_loop end
         local stats = player:FindFirstChild("leaderstats")
-        if not stats then continue end
-
+        if not stats then goto continue_loop end
         for _,v in pairs(stats:GetChildren()) do
             if v:IsA("IntValue") or v:IsA("NumberValue") then
                 if last[v.Name] == nil then
@@ -113,6 +112,7 @@ task.spawn(function()
                 end
             end
         end
+        ::continue_loop::
     end
 end)
 
