@@ -18,7 +18,8 @@ local LOGO_ASSET = "rbxassetid://113006064397580"
 getgenv().WebhookURL = getgenv().WebhookURL or ""
 getgenv().WebhookEnabled = getgenv().WebhookEnabled ~= false
 getgenv().RarityFilter = getgenv().RarityFilter or {
-    Uncommon=true, Rare=true, Epic=true, Legendary=true, Mythic=true, Secret=true
+    Common=false, Uncommon=true, Rare=true, Epic=true,
+    Legendary=true, Mythic=true, Secret=true
 }
 
 local AllRarity = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Secret"}
@@ -37,10 +38,8 @@ local Window = OrionLib:MakeWindow({
     IntroIcon = LOGO_ASSET
 })
 
-OrionLib:Toggle(false)
-
 -- =========================
--- HELPER
+-- WEBHOOK FUNCTION
 -- =========================
 local function sendWebhook(fishName, tier)
     if not getgenv().WebhookEnabled then return end
@@ -69,20 +68,17 @@ local function sendWebhook(fishName, tier)
 end
 
 -- =========================
--- AUTO DETECT FROM TEXT (FIX)
+-- TEXT DETECT (STABLE)
 -- =========================
 local function hookText(obj)
     if not obj:IsA("TextLabel") then return end
-
     obj:GetPropertyChangedSignal("Text"):Connect(function()
-        local text = obj.Text
-        if not text then return end
-
-        if text:lower():find("mendapat") or text:lower():find("mendapatkan") then
-            for _,tier in ipairs(AllRarity) do
-                if text:lower():find(tier:lower()) then
-                    local fishName = text
-                    sendWebhook(fishName, tier)
+        local t = obj.Text
+        if not t then return end
+        if t:lower():find("mendapat") or t:lower():find("mendapatkan") then
+            for _,r in ipairs(AllRarity) do
+                if t:lower():find(r:lower()) then
+                    sendWebhook(t, r)
                     break
                 end
             end
@@ -93,11 +89,10 @@ end
 for _,v in ipairs(PlayerGui:GetDescendants()) do
     hookText(v)
 end
-
 PlayerGui.DescendantAdded:Connect(hookText)
 
 -- =========================
--- WEBHOOK MENU (DIGABUNG)
+-- WEBHOOK MENU (AMAN)
 -- =========================
 local WebhookTab = Window:MakeTab({Name="Webhook"})
 
@@ -128,17 +123,21 @@ WebhookTab:AddButton({
 for _,r in ipairs(AllRarity) do
     WebhookTab:AddToggle({
         Name="Notify "..r,
-        Default=getgenv().RarityFilter[r] or false,
+        Default=getgenv().RarityFilter[r],
         Callback=function(v)
             getgenv().RarityFilter[r] = v
         end
     })
 end
 
+-- INIT UI (WAJIB SEBELUM TOGGLE)
 OrionLib:Init()
 
+-- MENU START HIDDEN
+OrionLib:Toggle(false)
+
 -- =========================
--- FLOATING LOGO
+-- FLOATING LOGO (ANTI HILANG)
 -- =========================
 local Gui = Instance.new("ScreenGui")
 Gui.Parent = gethui and gethui() or CoreGui
@@ -150,24 +149,37 @@ Logo.Size = UDim2.fromOffset(52,52)
 Logo.Position = UDim2.fromScale(0.85,0.45)
 Logo.BackgroundTransparency = 1
 Logo.Image = LOGO_ASSET
-Instance.new("UICorner",Logo).CornerRadius=UDim.new(1,0)
+Instance.new("UICorner",Logo).CornerRadius = UDim.new(1,0)
 
-local drag,ds,sp
+local dragging = false
+local moved = false
+local startPos, startInput
+
 Logo.InputBegan:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
-        drag=true ds=i.Position sp=Logo.Position
-    end
-end)
-Logo.InputEnded:Connect(function() drag=false end)
-UIS.InputChanged:Connect(function(i)
-    if drag and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
-        local d=i.Position-ds
-        Logo.Position=UDim2.new(sp.X.Scale,sp.X.Offset+d.X,sp.Y.Scale,sp.Y.Offset+d.Y)
+    if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        moved = false
+        startInput = i.Position
+        startPos = Logo.Position
     end
 end)
 
-local open=false
-Logo.MouseButton1Click:Connect(function()
-    open = not open
-    OrionLib:Toggle(open)
+Logo.InputEnded:Connect(function(i)
+    dragging = false
+    if not moved then
+        OrionLib:Toggle(not OrionLib.Enabled)
+    end
+end)
+
+UIS.InputChanged:Connect(function(i)
+    if dragging and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
+        local delta = i.Position - startInput
+        if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+            moved = true
+        end
+        Logo.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + delta.X,
+            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        )
+    end
 end)
