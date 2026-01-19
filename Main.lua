@@ -89,7 +89,16 @@ end
 -- =========================
 -- AUTO DETECT (LEADERSTATS)
 -- =========================
+
 local last = {}
+
+Math.randomseed(tick())
+OrionLib:MakeNotification({
+    Name="Loaded",
+    Content="DimZ-SC NOTIF berhasil dimuat",
+    Time=3
+})
+
 task.spawn(function()
     while task.wait(1) do
         if not getgenv().ScriptRunning then goto continue_loop end
@@ -153,6 +162,7 @@ SetTab:AddButton({
         OrionLib:Toggle(false)
     end
 })
+
 SetTab:AddButton({
     Name="Stop Script",
     Callback=function()
@@ -173,6 +183,8 @@ OrionLib:Init()
 local Gui = Instance.new("ScreenGui")
 Gui.Parent = gethui and gethui() or CoreGui
 Gui.ResetOnSpawn = false
+Gui.Name = SCRIPT_NAME.."_GUI"
+
 
 local Logo = Instance.new("ImageButton")
 Logo.Parent = Gui
