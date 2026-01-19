@@ -1,8 +1,6 @@
 repeat task.wait() until game:IsLoaded()
 
--- =========================
 -- SERVICES
--- =========================
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
@@ -13,9 +11,7 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 local req = request or http_request or syn.request
 if not req then return end
 
--- =========================
 -- CONFIG
--- =========================
 local SCRIPT_NAME = "DimZ-SC NOTIF"
 local LOGO_ASSET = "rbxassetid://113006064397580"
 
@@ -48,17 +44,15 @@ local Window = OrionLib:MakeWindow({
 -- =========================
 local function rarityAllowed(tier)
     for _,v in ipairs(getgenv().SelectedRarity) do
-        if v == tier then
-            return true
-        end
+        if v == tier then return true end
     end
     return false
 end
 
 -- =========================
--- SEND WEBHOOK (FISH)
+-- SEND WEBHOOK
 -- =========================
-local function sendFishWebhook(fishText, tier)
+local function sendFishWebhook(text, tier)
     if not getgenv().WebhookEnabled then return end
     if getgenv().WebhookURL == "" then return end
     if not rarityAllowed(tier) then return end
@@ -74,8 +68,7 @@ local function sendFishWebhook(fishText, tier)
                 description = "🎣 **"..player.Name.."** mendapatkan ikan **"..tier.."**",
                 color = 3447003,
                 fields = {
-                    {name="Fish Info",value="```"..fishText.."```",inline=false},
-                    {name="Fish Tier",value="```"..tier.."```",inline=false}
+                    {name="Info", value="```"..text.."```", inline=false}
                 },
                 footer = {text = SCRIPT_NAME},
                 timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -85,57 +78,47 @@ local function sendFishWebhook(fishText, tier)
 end
 
 -- =========================
--- SEND WEBHOOK (TEST)
+-- TEXT DETECTOR (REAL FIX)
 -- =========================
-local function sendTestWebhook()
-    if getgenv().WebhookURL == "" then return end
+local lastSent = ""
 
-    req({
-        Url = getgenv().WebhookURL,
-        Method = "POST",
-        Headers = {["Content-Type"]="application/json"},
-        Body = HttpService:JSONEncode({
-            username = SCRIPT_NAME,
-            content = "✅ **Webhook Terhubung!!**\nSelamat mencoba menggunakan **DimZ-SC NOTIF** 🎉"
-        })
-    })
-end
+local function processText(t)
+    if not t or t == "" then return end
+    if t == lastSent then return end
 
--- =========================
--- AUTO DETECT TEXT (FIX + DEBOUNCE)
--- =========================
-local lastText = ""
-
-local function hookText(obj)
-    if not obj:IsA("TextLabel") then return end
-
-    obj:GetPropertyChangedSignal("Text"):Connect(function()
-        local t = obj.Text
-        if not t or t == "" then return end
-        if t == lastText then return end
-
-        local lower = t:lower()
-        if lower:find("mendapat") or lower:find("mendapatkan") then
-            for _,r in ipairs(AllRarity) do
-                if lower:find(r:lower()) then
-                    lastText = t
-                    sendFishWebhook(t, r)
-                    task.delay(1, function()
-                        if lastText == t then
-                            lastText = ""
-                        end
-                    end)
-                    break
-                end
+    local lower = t:lower()
+    if lower:find("anda mendapatkan") then
+        for _,r in ipairs(AllRarity) do
+            if lower:find(r:lower()) then
+                lastSent = t
+                sendFishWebhook(t, r)
+                task.delay(1.5, function()
+                    if lastSent == t then lastSent = "" end
+                end)
+                break
             end
         end
-    end)
+    end
 end
 
-for _,v in ipairs(PlayerGui:GetDescendants()) do
-    hookText(v)
+local function hookObject(obj)
+    if obj:IsA("TextLabel") or obj:IsA("TextButton") then
+        processText(obj.Text)
+        obj:GetPropertyChangedSignal("Text"):Connect(function()
+            processText(obj.Text)
+        end)
+    end
 end
-PlayerGui.DescendantAdded:Connect(hookText)
+
+-- INITIAL SCAN
+for _,v in ipairs(PlayerGui:GetDescendants()) do
+    hookObject(v)
+end
+
+-- LIVE SCAN (INI KUNCI)
+PlayerGui.DescendantAdded:Connect(function(v)
+    hookObject(v)
+end)
 
 -- =========================
 -- WEBHOOK MENU
@@ -162,7 +145,14 @@ WebhookTab:AddToggle({
 WebhookTab:AddButton({
     Name="Test Webhook Connection",
     Callback=function()
-        sendTestWebhook()
+        req({
+            Url = getgenv().WebhookURL,
+            Method = "POST",
+            Headers = {["Content-Type"]="application/json"},
+            Body = HttpService:JSONEncode({
+                content = "✅ **Webhook Terhubung!!**\nDimZ-SC NOTIF siap digunakan."
+            })
+        })
     end
 })
 
@@ -176,17 +166,11 @@ WebhookTab:AddDropdown({
 })
 
 -- =========================
--- INIT UI (ANDROID SAFE)
+-- INIT UI
 -- =========================
 OrionLib:Init()
 task.wait(0.2)
 OrionLib:Toggle(false)
-
-OrionLib:MakeNotification({
-    Name = SCRIPT_NAME,
-    Content = "Gunakan logo untuk membuka menu",
-    Time = 4
-})
 
 -- =========================
 -- FLOATING LOGO
@@ -230,9 +214,7 @@ end)
 UIS.InputChanged:Connect(function(i)
     if dragging and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
         local d=i.Position-startInput
-        if math.abs(d.X)>5 or math.abs(d.Y)>5 then
-            moved=true
-        end
+        if math.abs(d.X)>5 or math.abs(d.Y)>5 then moved=true end
         Logo.Position=UDim2.new(
             startPos.X.Scale,startPos.X.Offset+d.X,
             startPos.Y.Scale,startPos.Y.Offset+d.Y
