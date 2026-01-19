@@ -21,17 +21,11 @@ local LOGO_ASSET = "rbxassetid://113006064397580"
 
 getgenv().WebhookURL = getgenv().WebhookURL or ""
 getgenv().WebhookEnabled = getgenv().WebhookEnabled ~= false
-getgenv().RarityFilter = getgenv().RarityFilter or {
-    Common = false,
-    Uncommon = true,
-    Rare = true,
-    Epic = true,
-    Legendary = true,
-    Mythic = true,
-    Secret = true
-}
 
 local AllRarity = {"Common","Uncommon","Rare","Epic","Legendary","Mythic","Secret"}
+getgenv().SelectedRarity = getgenv().SelectedRarity or {
+    "Uncommon","Rare","Epic","Legendary","Mythic","Secret"
+}
 
 -- =========================
 -- LOAD ORION
@@ -50,26 +44,38 @@ local Window = OrionLib:MakeWindow({
 })
 
 -- =========================
--- WEBHOOK FUNCTION
+-- HELPER
 -- =========================
-local function sendWebhook(fishText, tier)
+local function rarityAllowed(tier)
+    for _,v in ipairs(getgenv().SelectedRarity) do
+        if v == tier then
+            return true
+        end
+    end
+    return false
+end
+
+-- =========================
+-- SEND WEBHOOK (FISH)
+-- =========================
+local function sendFishWebhook(fishText, tier)
     if not getgenv().WebhookEnabled then return end
     if getgenv().WebhookURL == "" then return end
-    if not getgenv().RarityFilter[tier] then return end
+    if not rarityAllowed(tier) then return end
 
     req({
         Url = getgenv().WebhookURL,
         Method = "POST",
-        Headers = {["Content-Type"] = "application/json"},
+        Headers = {["Content-Type"]="application/json"},
         Body = HttpService:JSONEncode({
             username = SCRIPT_NAME,
             embeds = {{
                 title = SCRIPT_NAME.." | Fish Caught",
-                description = "🎣 **"..player.Name.."** obtained a **"..tier.."** fish!",
+                description = "🎣 **"..player.Name.."** mendapatkan ikan **"..tier.."**",
                 color = 3447003,
                 fields = {
-                    {name = "Fish Info", value = "```"..fishText.."```", inline = false},
-                    {name = "Fish Tier", value = "```"..tier.."```", inline = false}
+                    {name="Fish Info",value="```"..fishText.."```",inline=false},
+                    {name="Fish Tier",value="```"..tier.."```",inline=false}
                 },
                 footer = {text = SCRIPT_NAME},
                 timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -79,20 +85,46 @@ local function sendWebhook(fishText, tier)
 end
 
 -- =========================
--- AUTO DETECT TEXT (MANCING)
+-- SEND WEBHOOK (TEST)
 -- =========================
+local function sendTestWebhook()
+    if getgenv().WebhookURL == "" then return end
+
+    req({
+        Url = getgenv().WebhookURL,
+        Method = "POST",
+        Headers = {["Content-Type"]="application/json"},
+        Body = HttpService:JSONEncode({
+            username = SCRIPT_NAME,
+            content = "✅ **Webhook Terhubung!!**\nSelamat mencoba menggunakan **DimZ-SC NOTIF** 🎉"
+        })
+    })
+end
+
+-- =========================
+-- AUTO DETECT TEXT (FIX + DEBOUNCE)
+-- =========================
+local lastText = ""
+
 local function hookText(obj)
     if not obj:IsA("TextLabel") then return end
 
     obj:GetPropertyChangedSignal("Text"):Connect(function()
         local t = obj.Text
         if not t or t == "" then return end
+        if t == lastText then return end
 
         local lower = t:lower()
         if lower:find("mendapat") or lower:find("mendapatkan") then
             for _,r in ipairs(AllRarity) do
                 if lower:find(r:lower()) then
-                    sendWebhook(t, r)
+                    lastText = t
+                    sendFishWebhook(t, r)
+                    task.delay(1, function()
+                        if lastText == t then
+                            lastText = ""
+                        end
+                    end)
                     break
                 end
             end
@@ -106,52 +138,49 @@ end
 PlayerGui.DescendantAdded:Connect(hookText)
 
 -- =========================
--- WEBHOOK MENU (SATU TAB)
+-- WEBHOOK MENU
 -- =========================
-local WebhookTab = Window:MakeTab({Name = "Webhook"})
+local WebhookTab = Window:MakeTab({Name="Webhook"})
 
 WebhookTab:AddTextbox({
-    Name = "Discord Webhook URL",
-    Default = getgenv().WebhookURL,
-    TextDisappear = false,
-    Callback = function(v)
+    Name="Discord Webhook URL",
+    Default=getgenv().WebhookURL,
+    TextDisappear=false,
+    Callback=function(v)
         getgenv().WebhookURL = v
     end
 })
 
 WebhookTab:AddToggle({
-    Name = "Enable Webhook Notification",
-    Default = getgenv().WebhookEnabled,
-    Callback = function(v)
+    Name="Enable Webhook Notification",
+    Default=getgenv().WebhookEnabled,
+    Callback=function(v)
         getgenv().WebhookEnabled = v
     end
 })
 
 WebhookTab:AddButton({
-    Name = "Test Webhook",
-    Callback = function()
-        sendWebhook("Test Fish - Tricolore Butterfly", "Uncommon")
+    Name="Test Webhook Connection",
+    Callback=function()
+        sendTestWebhook()
     end
 })
 
-WebhookTab:AddLabel("Fish Rarity Filter")
-
-for _,r in ipairs(AllRarity) do
-    WebhookTab:AddToggle({
-        Name = r,
-        Default = getgenv().RarityFilter[r],
-        Callback = function(v)
-            getgenv().RarityFilter[r] = v
-        end
-    })
-end
+WebhookTab:AddDropdown({
+    Name="Fish Rarity Notification",
+    Options=AllRarity,
+    Default=getgenv().SelectedRarity,
+    Callback=function(v)
+        getgenv().SelectedRarity = v
+    end
+})
 
 -- =========================
--- INIT UI (PENTING)
+-- INIT UI (ANDROID SAFE)
 -- =========================
 OrionLib:Init()
 task.wait(0.2)
-OrionLib:Toggle(false) -- start hidden (ANTI BUG ANDROID)
+OrionLib:Toggle(false)
 
 OrionLib:MakeNotification({
     Name = SCRIPT_NAME,
@@ -160,7 +189,7 @@ OrionLib:MakeNotification({
 })
 
 -- =========================
--- FLOATING LOGO (ANTI BUG)
+-- FLOATING LOGO
 -- =========================
 local Gui = Instance.new("ScreenGui")
 Gui.Parent = gethui and gethui() or CoreGui
@@ -172,24 +201,24 @@ Logo.Size = UDim2.fromOffset(52,52)
 Logo.Position = UDim2.fromScale(0.85,0.45)
 Logo.BackgroundTransparency = 1
 Logo.Image = LOGO_ASSET
-Instance.new("UICorner", Logo).CornerRadius = UDim.new(1,0)
+Instance.new("UICorner",Logo).CornerRadius=UDim.new(1,0)
 
-local dragging = false
-local moved = false
-local startInput, startPos
-local menuOpen = false
+local dragging=false
+local moved=false
+local startInput,startPos
+local menuOpen=false
 
 Logo.InputBegan:Connect(function(i)
-    if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
-        dragging = true
-        moved = false
-        startInput = i.Position
-        startPos = Logo.Position
+    if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+        dragging=true
+        moved=false
+        startInput=i.Position
+        startPos=Logo.Position
     end
 end)
 
 Logo.InputEnded:Connect(function()
-    dragging = false
+    dragging=false
     if not moved then
         menuOpen = not menuOpen
         OrionLib:Toggle(false)
@@ -199,14 +228,14 @@ Logo.InputEnded:Connect(function()
 end)
 
 UIS.InputChanged:Connect(function(i)
-    if dragging and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
-        local delta = i.Position - startInput
-        if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
-            moved = true
+    if dragging and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
+        local d=i.Position-startInput
+        if math.abs(d.X)>5 or math.abs(d.Y)>5 then
+            moved=true
         end
-        Logo.Position = UDim2.new(
-            startPos.X.Scale, startPos.X.Offset + delta.X,
-            startPos.Y.Scale, startPos.Y.Offset + delta.Y
+        Logo.Position=UDim2.new(
+            startPos.X.Scale,startPos.X.Offset+d.X,
+            startPos.Y.Scale,startPos.Y.Offset+d.Y
         )
     end
 end)
