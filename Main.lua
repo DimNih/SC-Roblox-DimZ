@@ -1,6 +1,8 @@
 repeat task.wait() until game:IsLoaded()
 
+-- =========================
 -- SERVICES
+-- =========================
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
 local UIS = game:GetService("UserInputService")
@@ -11,7 +13,9 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 local req = request or http_request or syn.request
 if not req then return end
 
+-- =========================
 -- CONFIG
+-- =========================
 local SCRIPT_NAME = "DimZ-SC NOTIF"
 local LOGO_ASSET = "rbxassetid://113006064397580"
 
@@ -44,7 +48,9 @@ local Window = OrionLib:MakeWindow({
 -- =========================
 local function rarityAllowed(tier)
     for _,v in ipairs(getgenv().SelectedRarity) do
-        if v == tier then return true end
+        if v == tier then
+            return true
+        end
     end
     return false
 end
@@ -60,15 +66,15 @@ local function sendFishWebhook(text, tier)
     req({
         Url = getgenv().WebhookURL,
         Method = "POST",
-        Headers = {["Content-Type"]="application/json"},
+        Headers = {["Content-Type"] = "application/json"},
         Body = HttpService:JSONEncode({
             username = SCRIPT_NAME,
             embeds = {{
-                title = SCRIPT_NAME.." | Fish Caught",
+                title = SCRIPT_NAME .. " | Fish Caught",
                 description = "🎣 **"..player.Name.."** mendapatkan ikan **"..tier.."**",
                 color = 3447003,
                 fields = {
-                    {name="Info", value="```"..text.."```", inline=false}
+                    {name = "Info", value = "```"..text.."```", inline = false}
                 },
                 footer = {text = SCRIPT_NAME},
                 timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ")
@@ -78,22 +84,25 @@ local function sendFishWebhook(text, tier)
 end
 
 -- =========================
--- TEXT DETECTOR (REAL FIX)
+-- TEXT DETECTOR (FINAL FIX)
 -- =========================
 local lastSent = ""
 
-local function processText(t)
-    if not t or t == "" then return end
-    if t == lastSent then return end
+local function trySend(text)
+    if not text or text == "" then return end
+    if text == lastSent then return end
 
-    local lower = t:lower()
-    if lower:find("anda mendapatkan") then
+    local lower = text:lower()
+    if lower:find("anda mendapatkan") or lower:find("you caught") then
         for _,r in ipairs(AllRarity) do
             if lower:find(r:lower()) then
-                lastSent = t
-                sendFishWebhook(t, r)
-                task.delay(1.5, function()
-                    if lastSent == t then lastSent = "" end
+                lastSent = text
+                sendFishWebhook(text, r)
+
+                task.delay(1.2, function()
+                    if lastSent == text then
+                        lastSent = ""
+                    end
                 end)
                 break
             end
@@ -101,54 +110,66 @@ local function processText(t)
     end
 end
 
-local function hookObject(obj)
+local function hook(obj)
+    -- UI biasa
     if obj:IsA("TextLabel") or obj:IsA("TextButton") then
-        processText(obj.Text)
+        trySend(obj.Text)
         obj:GetPropertyChangedSignal("Text"):Connect(function()
-            processText(obj.Text)
+            trySend(obj.Text)
         end)
+    end
+
+    -- BillboardGui (KUNCI FISH IT)
+    if obj:IsA("BillboardGui") then
+        for _,v in ipairs(obj:GetDescendants()) do
+            if v:IsA("TextLabel") then
+                trySend(v.Text)
+                v:GetPropertyChangedSignal("Text"):Connect(function()
+                    trySend(v.Text)
+                end)
+            end
+        end
     end
 end
 
--- INITIAL SCAN
+-- SCAN AWAL
 for _,v in ipairs(PlayerGui:GetDescendants()) do
-    hookObject(v)
+    hook(v)
 end
 
--- LIVE SCAN (INI KUNCI)
-PlayerGui.DescendantAdded:Connect(function(v)
-    hookObject(v)
-end)
+-- SCAN REALTIME
+PlayerGui.DescendantAdded:Connect(hook)
 
 -- =========================
 -- WEBHOOK MENU
 -- =========================
-local WebhookTab = Window:MakeTab({Name="Webhook"})
+local WebhookTab = Window:MakeTab({Name = "Webhook"})
 
 WebhookTab:AddTextbox({
-    Name="Discord Webhook URL",
-    Default=getgenv().WebhookURL,
-    TextDisappear=false,
-    Callback=function(v)
+    Name = "Discord Webhook URL",
+    Default = getgenv().WebhookURL,
+    TextDisappear = false,
+    Callback = function(v)
         getgenv().WebhookURL = v
     end
 })
 
 WebhookTab:AddToggle({
-    Name="Enable Webhook Notification",
-    Default=getgenv().WebhookEnabled,
-    Callback=function(v)
+    Name = "Enable Webhook Notification",
+    Default = getgenv().WebhookEnabled,
+    Callback = function(v)
         getgenv().WebhookEnabled = v
     end
 })
 
 WebhookTab:AddButton({
-    Name="Test Webhook Connection",
-    Callback=function()
+    Name = "Test Webhook Connection",
+    Callback = function()
+        if getgenv().WebhookURL == "" then return end
         req({
             Url = getgenv().WebhookURL,
             Method = "POST",
-            Headers = {["Content-Type"]="application/json"},
+            Headers = {["Content-Type"] = "application/json"},
             Body = HttpService:JSONEncode({
                 content = "✅ **Webhook Terhubung!!**\nDimZ-SC NOTIF siap digunakan."
             })
@@ -157,10 +178,10 @@ WebhookTab:AddButton({
 })
 
 WebhookTab:AddDropdown({
-    Name="Fish Rarity Notification",
-    Options=AllRarity,
-    Default=getgenv().SelectedRarity,
-    Callback=function(v)
+    Name = "Fish Rarity Notification",
+    Options = AllRarity,
+    Default = getgenv().SelectedRarity,
+    Callback = function(v)
         getgenv().SelectedRarity = v
     end
 })
@@ -185,24 +206,24 @@ Logo.Size = UDim2.fromOffset(52,52)
 Logo.Position = UDim2.fromScale(0.85,0.45)
 Logo.BackgroundTransparency = 1
 Logo.Image = LOGO_ASSET
-Instance.new("UICorner",Logo).CornerRadius=UDim.new(1,0)
+Instance.new("UICorner", Logo).CornerRadius = UDim.new(1,0)
 
-local dragging=false
-local moved=false
-local startInput,startPos
-local menuOpen=false
+local dragging = false
+local moved = false
+local startInput, startPos
+local menuOpen = false
 
 Logo.InputBegan:Connect(function(i)
-    if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
-        dragging=true
-        moved=false
-        startInput=i.Position
-        startPos=Logo.Position
+    if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        moved = false
+        startInput = i.Position
+        startPos = Logo.Position
     end
 end)
 
 Logo.InputEnded:Connect(function()
-    dragging=false
+    dragging = false
     if not moved then
         menuOpen = not menuOpen
         OrionLib:Toggle(false)
@@ -212,12 +233,14 @@ Logo.InputEnded:Connect(function()
 end)
 
 UIS.InputChanged:Connect(function(i)
-    if dragging and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
-        local d=i.Position-startInput
-        if math.abs(d.X)>5 or math.abs(d.Y)>5 then moved=true end
-        Logo.Position=UDim2.new(
-            startPos.X.Scale,startPos.X.Offset+d.X,
-            startPos.Y.Scale,startPos.Y.Offset+d.Y
+    if dragging and (i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseMovement) then
+        local d = i.Position - startInput
+        if math.abs(d.X) > 5 or math.abs(d.Y) > 5 then
+            moved = true
+        end
+        Logo.Position = UDim2.new(
+            startPos.X.Scale, startPos.X.Offset + d.X,
+            startPos.Y.Scale, startPos.Y.Offset + d.Y
         )
     end
 end)
