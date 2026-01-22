@@ -70,7 +70,7 @@ local function sendFishWebhook(text, tier)
         Body = HttpService:JSONEncode({
             username = SCRIPT_NAME,
             embeds = {{
-                title = SCRIPT_NAME .. " | Fish Caught",
+                title = SCRIPT_NAME.." | Fish Caught",
                 description = "🎣 **"..player.Name.."** mendapatkan ikan **"..tier.."**",
                 color = 3447003,
                 fields = {
@@ -84,7 +84,7 @@ local function sendFishWebhook(text, tier)
 end
 
 -- =========================
--- TEXT DETECTOR (FINAL FIX)
+-- TEXT DETECTOR (RARITY FIX)
 -- =========================
 local lastSent = ""
 
@@ -93,25 +93,37 @@ local function trySend(text)
     if text == lastSent then return end
 
     local lower = text:lower()
-    if lower:find("anda mendapatkan") or lower:find("you caught") then
-        for _,r in ipairs(AllRarity) do
-            if lower:find(r:lower()) then
-                lastSent = text
-                sendFishWebhook(text, r)
+    if not (lower:find("anda mendapatkan") or lower:find("you caught")) then return end
 
-                task.delay(1.2, function()
-                    if lastSent == text then
-                        lastSent = ""
-                    end
-                end)
-                break
-            end
+    local detectedRarity = nil
+
+    -- coba deteksi rarity di teks
+    for _,r in ipairs(AllRarity) do
+        if lower:find(r:lower()) then
+            detectedRarity = r
+            break
         end
     end
+
+    -- fallback kalau tidak ada rarity di teks
+    if not detectedRarity then
+        detectedRarity = "Common"
+    end
+
+    -- cek filter dropdown
+    if not rarityAllowed(detectedRarity) then return end
+
+    lastSent = text
+    sendFishWebhook(text, detectedRarity)
+
+    task.delay(1.2, function()
+        if lastSent == text then
+            lastSent = ""
+        end
+    end)
 end
 
 local function hook(obj)
-    -- UI biasa
     if obj:IsA("TextLabel") or obj:IsA("TextButton") then
         trySend(obj.Text)
         obj:GetPropertyChangedSignal("Text"):Connect(function()
@@ -119,7 +131,6 @@ local function hook(obj)
         end)
     end
 
-    -- BillboardGui (KUNCI FISH IT)
     if obj:IsA("BillboardGui") then
         for _,v in ipairs(obj:GetDescendants()) do
             if v:IsA("TextLabel") then
@@ -208,8 +219,7 @@ Logo.BackgroundTransparency = 1
 Logo.Image = LOGO_ASSET
 Instance.new("UICorner", Logo).CornerRadius = UDim.new(1,0)
 
-local dragging = false
-local moved = false
+local dragging, moved = false, false
 local startInput, startPos
 local menuOpen = false
 
