@@ -59,6 +59,38 @@ local function rarityAllowed(tier)
 end
 
 -- =========================
+-- TELEPORT TO PLAYER HELPERS
+-- =========================
+local selectedPlayer = nil
+
+local function getPlayerList()
+	local list = {}
+	for _,plr in ipairs(Players:GetPlayers()) do
+		if plr ~= player then
+			table.insert(list, plr.Name)
+		end
+	end
+	table.sort(list)
+	return list
+end
+
+local function teleportToPlayer(targetName)
+	local target = Players:FindFirstChild(targetName)
+	if not target then return end
+
+	local targetChar = target.Character
+	if not targetChar then return end
+
+	local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+	if not targetHRP then return end
+
+	local myChar = player.Character or player.CharacterAdded:Wait()
+	local myHRP = myChar:WaitForChild("HumanoidRootPart")
+
+	myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, -3)
+end
+
+-- =========================
 -- DISCORD WEBHOOK
 -- =========================
 local function sendFishWebhook(text, tier)
@@ -199,6 +231,39 @@ WebhookTab:AddButton({
 				content = "✅ **DimZ-SC Webhook Aktif!**"
 			})
 		})
+	end
+})
+
+-- =========================
+-- TAB : TELEPORT PLAYER
+-- =========================
+local TeleportPlayerTab = Window:MakeTab({
+	Name = "Teleport Player",
+	Icon = "users"
+})
+
+local PlayerDropdown = TeleportPlayerTab:AddDropdown({
+	Name = "Select Player",
+	Options = getPlayerList(),
+	Default = "",
+	Callback = function(v)
+		selectedPlayer = v
+	end
+})
+
+TeleportPlayerTab:AddButton({
+	Name = "Refresh Player List",
+	Callback = function()
+		PlayerDropdown:Refresh(getPlayerList(), true)
+		selectedPlayer = nil
+	end
+})
+
+TeleportPlayerTab:AddButton({
+	Name = "Teleport to Player",
+	Callback = function()
+		if not selectedPlayer or selectedPlayer == "" then return end
+		teleportToPlayer(selectedPlayer)
 	end
 })
 
